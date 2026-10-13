@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 진짜 능력치 스탯 카드</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- 폰트 적용 (Pretendard) -->
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable.css" rel="stylesheet" />
+    
+    <style>
+        body {
+            font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease-in-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 테마별 카드 CSS --- */
+        .card-container { transition: all 0.3s ease; position: relative; overflow: hidden; backdrop-filter: blur(10px); }
+        
+        .theme-healer { background: linear-gradient(135deg, rgba(212,252,121,0.9) 0%, rgba(150,230,161,0.9) 100%); color: #2f4f4f; box-shadow: 0 10px 30px rgba(150, 230, 161, 0.4); border: 3px solid rgba(255,255,255,0.6); }
+        .theme-healer .stat-bar-fill { background-color: #4ade80; }
+        .theme-healer .stat-bg { background-color: rgba(255, 255, 255, 0.5); }
+        .theme-healer .card-title { color: #166534; }
+
+        .theme-challenger { background: linear-gradient(135deg, rgba(43,16,85,0.9) 0%, rgba(117,151,222,0.9) 100%); color: #fff; box-shadow: 0 10px 30px rgba(117, 151, 222, 0.4); border: 3px solid #f472b6; }
+        .theme-challenger .stat-bar-fill { background: linear-gradient(90deg, #f472b6, #fb7185); box-shadow: 0 0 10px #f472b6; }
+        .theme-challenger .stat-bg { background-color: rgba(255, 255, 255, 0.2); }
+        .theme-challenger .card-title { color: #fdf2f8; text-shadow: 0 0 5px #f472b6; font-style: italic; }
+
+        .theme-analyst { background: linear-gradient(135deg, rgba(224,195,252,0.9) 0%, rgba(142,197,252,0.9) 100%); color: #1e3a8a; box-shadow: 0 10px 30px rgba(142, 197, 252, 0.4); border: 3px solid rgba(255,255,255,0.8); }
+        .theme-analyst .stat-bar-fill { background-color: #3b82f6; }
+        .theme-analyst .stat-bg { background-color: rgba(255, 255, 255, 0.6); }
+        .theme-analyst .card-title { color: #1e3a8a; letter-spacing: 2px; }
+
+        .theme-artist { background: linear-gradient(135deg, rgba(255,209,255,0.9) 0%, rgba(250,208,196,0.9) 100%); color: #831843; box-shadow: 0 10px 30px rgba(250, 208, 196, 0.5); border: 3px solid rgba(255,255,255,0.7); }
+        .theme-artist .stat-bar-fill { background: linear-gradient(90deg, #fb923c, #f43f5e); }
+        .theme-artist .stat-bg { background-color: rgba(255, 255, 255, 0.5); }
+        .theme-artist .card-title { color: #be123c; font-weight: 900; }
+
+        .stat-bar-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* ==========================================
+         * 환풍구(Vent) 모달 애니메이션 및 파티클
+         * ========================================== */
+        #vent-input-area { position: relative; perspective: 1000px; }
+        .anim-shake { animation: intenseShake 0.1s infinite; }
+        @keyframes intenseShake {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(3px, -3px) rotate(1deg); }
+            50% { transform: translate(-3px, 2px) rotate(-1deg); }
+            75% { transform: translate(2px, 3px) rotate(0.5deg); }
+            100% { transform: translate(-2px, -2px) rotate(-0.5deg); }
+        }
+
+        /* 🌪️ 토네이도 */
+        .tornado-vortex {
+            position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%);
+            width: 200%; height: 300px;
+            background: conic-gradient(from 0deg at 50% 100%, transparent 0deg, rgba(200,200,255,0.6) 90deg, transparent 180deg, rgba(150,150,255,0.4) 270deg, transparent 360deg);
+            clip-path: polygon(20% 0%, 80% 0%, 55% 100%, 45% 100%);
+            animation: spinTornado 0.5s linear infinite, fadeTornado 1.5s forwards;
+            z-index: 40; pointer-events: none; mix-blend-mode: screen; filter: blur(4px);
+        }
+        @keyframes spinTornado { to { transform: translateX(-50%) rotateY(360deg); } }
+        @keyframes fadeTornado { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .anim-suck-tornado { animation: suckIntoTornado 1.2s cubic-bezier(0.5, 0, 0.3, 1) forwards; }
+        @keyframes suckIntoTornado {
+            0% { transform: scale(1) rotate(0deg); filter: blur(0); opacity: 1; }
+            40% { transform: scale(0.8) rotate(15deg) translateY(20px); filter: blur(2px); opacity: 0.8; }
+            100% { transform: scale(0) rotate(720deg) translateY(300px); filter: blur(10px); opacity: 0; }
+        }
+
+        /* 🔥 불태우기 */
+        .fire-flame {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 100px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,100 C20,80 30,10 50,50 C70,90 80,20 100,100 Z" fill="rgba(255,100,0,0.8)"/></svg>') repeat-x;
+            background-size: 50% 100%;
+            animation: burnFlames 0.4s infinite alternate, riseUp 1.5s forwards;
+            z-index: 40; pointer-events: none; filter: blur(3px) contrast(2); mix-blend-mode: screen;
+        }
+        @keyframes burnFlames { 0% { transform: scaleY(1); } 100% { transform: scaleY(1.5); } }
+        @keyframes riseUp { 0% { bottom: -50px; opacity: 1; height: 50px; } 80% { bottom: 100%; opacity: 1; height: 200px; } 100% { bottom: 120%; opacity: 0; } }
+        .anim-burn-ash { animation: turnToAsh 1.4s ease-in forwards; }
+        @keyframes turnToAsh {
+            0% { filter: brightness(1) sepia(0); opacity: 1; }
+            40% { filter: brightness(0.5) sepia(1) hue-rotate(-50deg) contrast(2); transform: scale(0.95); opacity: 0.9; }
+            80% { filter: brightness(0.1) grayscale(1); transform: scale(0.9) translateY(-20px); opacity: 0.5; }
+            100% { filter: brightness(0) blur(10px); transform: scale(0.8) translateY(-50px); opacity: 0; }
+        }
+        .ash-particle { position: absolute; background: #333; border-radius: 50%; animation: floatAsh 1s linear forwards; }
+        @keyframes floatAsh { to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
+
+        /* 🚀 우주 로켓 */
+        .rocket-engine {
+            position: absolute; width: 40px; height: 80px; bottom: -20px;
+            background: linear-gradient(to bottom, #ddd, #666); border-radius: 50% 50% 10% 10%;
+            z-index: 40; box-shadow: 0 10px 20px #f97316; opacity: 0;
+            animation: attachRocket 0.5s forwards, rocketBlast 1s 0.5s forwards;
+        }
+        .rocket-left { left: -10px; } .rocket-right { right: -10px; }
+        @keyframes attachRocket { 0% { transform: translateY(50px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes rocketBlast { 0% { box-shadow: 0 10px 20px #f97316; } 100% { box-shadow: 0 100px 50px #38bdf8; } }
+        .anim-space-launch { animation: launchSpace 1.5s cubic-bezier(0.8, 0, 1, 1) forwards; }
+        @keyframes launchSpace {
+            0% { transform: translateY(0); }
+            30% { transform: translateY(10px); }
+            100% { transform: translateY(-1000px) scale(0.5); opacity: 0; }
+        }
+
+        /* ⚔️ 날아오는 참격 (검기) */
+        .sword-slash-line {
+            position: absolute; height: 16px;
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #ffffff 10%, #60a5fa 30%, #f59e0b 60%, #ef4444 90%, rgba(239,68,68,0) 100%);
+            border-radius: 50%; z-index: 50; pointer-events: none;
+            transform-origin: center center;
+            animation: flyingSwordSlash 0.25s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.9));
+        }
+        @keyframes flyingSwordSlash {
+            0% { transform: var(--slash-start); opacity: 0; }
+            30% { transform: var(--slash-mid); opacity: 1; filter: brightness(3) drop-shadow(0 0 30px #ffffff); }
+            100% { transform: var(--slash-end); opacity: 0; filter: brightness(1.5) blur(4px); }
+        }
+        .slash-impact-flash {
+            position: absolute; inset: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(239,68,68,0.5) 50%, transparent 80%);
+            mix-blend-mode: overlay; z-index: 45; pointer-events: none;
+            animation: flashFade 0.2s ease-out forwards;
+        }
+        @keyframes flashFade { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
+        .slash-cut-mark {
+            position: absolute; height: 4px;
+            background: linear-gradient(90deg, transparent, #ef4444 20%, #fbbf24 50%, #ffffff 80%, transparent);
+            box-shadow: 0 0 15px #ef4444, 0 0 20px #f59e0b;
+            z-index: 48; pointer-events: none; animation: cutMarkFade 0.6s ease-out forwards;
+        }
+        @keyframes cutMarkFade { 0% { opacity: 1; filter: brightness(2); } 100% { opacity: 0; filter: blur(5px); } }
+        .anim-shred-ribbons { animation: sliceDisintegrate 1s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; }
+        @keyframes sliceDisintegrate {
+            0% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+            20% { transform: scale(1.02) skewX(-5deg); filter: brightness(2); }
+            40% { transform: scale(0.98) skewX(5deg); filter: brightness(3) drop-shadow(0 0 10px #ef4444); }
+            70% { transform: scale(0.8) rotate(-10deg) translateY(30px); opacity: 0.8; filter: blur(3px); }
+            100% { transform: scale(0.01) rotate(45deg) translateY(150px); opacity: 0; filter: blur(10px); }
+        }
+        .slash-spark { position: absolute; background: #fff; border-radius: 2px; animation: sparkFly 0.5s ease-out forwards; }
+        @keyframes sparkFly { to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- 감정 환풍구 버튼 (플로팅) -->
+    <button onclick="openVentModal()" class="fixed top-4 right-4 z-50 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 transition-transform transform hover:scale-105 border border-slate-700">
+        <span class="text-xl">🌬️</span>
+        <span class="hidden sm:inline">숨겨진 환풍구</span>
+    </button>
+
+    <div id="app" class="bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden min-h-[600px] flex flex-col relative">
+        
+        <!-- 1. 시작 화면 -->
+        <div id="screen-intro" class="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
+            <div class="text-6xl mb-4">🃏</div>
+            <h1 class="text-3xl md:text-5xl font-bold text-gray-800 mb-4">나만의 진짜 능력치 카드</h1>
+            <p class="text-gray-600 mb-8 max-w-lg text-lg leading-relaxed">
+                1~9등급으로 매겨지는 성적표는 그만!<br>
+                나의 진짜 성향을 알아보고, 나만의 숨겨진 스탯(능력치)으로 채워진 스페셜 카드를 만들어 보세요.
+            </p>
+            <button onclick="startQuiz()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-10 rounded-full transition-transform transform hover:scale-105 shadow-xl text-lg">
+                성향 테스트 시작하기
+            </button>
+        </div>
+
+        <!-- 2. 테스트(퀴즈) 화면 -->
+        <div id="screen-quiz" class="hidden flex-1 flex flex-col items-center justify-center p-8 w-full max-w-3xl mx-auto">
+            <div class="w-full mb-10">
+                <div class="flex justify-between text-sm font-bold text-indigo-500 mb-2">
+                    <span>테스트 진행 중</span>
+                    <span id="quiz-progress-text">1 / 6</span>
+                </div>
+                <div class="w-full bg-indigo-100 rounded-full h-3">
+                    <div id="quiz-progress-bar" class="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out" style="width: 16.6%"></div>
+                </div>
+            </div>
+            
+            <h2 id="question-text" class="text-2xl md:text-3xl font-bold text-gray-800 mb-10 text-center break-keep leading-snug">질문이 여기에 표시됩니다.</h2>
+            
+            <div id="answer-buttons" class="flex flex-col gap-4 w-full">
+                <!-- 버튼 동적 생성 -->
+            </div>
+        </div>
+
+        <!-- 3. 결과 및 카드 생성 화면 -->
+        <div id="screen-result" class="hidden flex-1 p-6 md:p-8 flex flex-col lg:flex-row gap-8 bg-gray-50">
+            
+            <!-- 왼쪽: 카드 프리뷰 -->
+            <div class="flex-1 flex flex-col items-center justify-center">
+                <!-- 다운로드 영역 래퍼 -->
+                <div id="capture-wrapper" class="p-4 bg-transparent">
+                    <div id="capture-area" class="w-full max-w-[360px] aspect-[3/4.2] card-container theme-healer rounded-[2rem] p-8 flex flex-col justify-between">
+                        <div class="text-center mb-6 relative z-10">
+                            <div id="card-type-label" class="inline-block px-4 py-1.5 bg-black bg-opacity-20 rounded-full text-sm font-bold mb-3 backdrop-blur-sm">유형 라벨</div>
+                            <h3 id="card-name" class="card-title text-3xl font-extrabold uppercase tracking-tight line-clamp-1">USER NAME</h3>
+                        </div>
+                        
+                        <div class="flex-1 flex items-center justify-center mb-8 stat-bg rounded-2xl border border-white border-opacity-30 relative z-10 shadow-inner">
+                            <span id="card-emoji" class="text-[5rem] drop-shadow-xl transition-transform hover:scale-110">🌿</span>
+                        </div>
+
+                        <div id="card-stats-container" class="space-y-4 relative z-10">
+                            <!-- 스탯 동적 생성 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <button onclick="downloadCard()" class="mt-4 bg-gray-900 hover:bg-black text-white font-bold py-3.5 px-8 rounded-2xl flex items-center gap-2 transition-all transform hover:translate-y-[-2px] shadow-lg w-full max-w-[360px] justify-center text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    내 카드 이미지로 저장
+                </button>
+
+                <button onclick="copySiteUrl()" class="mt-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-3 px-6 rounded-2xl flex items-center gap-2 transition-all shadow-sm w-full max-w-[360px] justify-center text-base border border-indigo-200">
+                    <span class="text-lg">🔗</span>
+                    <span>사이트 주소(URL) 복사하기</span>
+                </button>
+            </div>
+
+            <!-- 오른쪽: 커스텀 패널 -->
+            <div class="flex-1 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 overflow-y-auto max-h-[800px]">
+                <h3 class="text-2xl font-bold text-gray-800 mb-1">카드 커스터마이징 🛠️</h3>
+                <p class="text-gray-500 mb-8">나만의 개성에 맞게 프로필과 스탯을 자유롭게 수정하세요.</p>
+
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">타이틀 (이름/별명)</label>
+                        <input type="text" id="input-name" value="MY STATS" oninput="updateName(this.value)" class="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold" placeholder="이름 입력">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">대표 아이콘(이모지)</label>
+                        <select id="input-emoji" onchange="updateEmoji(this.value)" class="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-2xl text-center cursor-pointer">
+                            <option value="🌿">🌿</option> <option value="🔥">🔥</option> <option value="🧐">🧐</option> <option value="🎨">🎨</option>
+                            <option value="👑">👑</option> <option value="💎">💎</option> <option value="🎸">🎸</option> <option value="🍀">🍀</option>
+                            <option value="🦄">🦄</option> <option value="⚡">⚡</option> <option value="🌙">🌙</option> <option value="🍔">🍔</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <label class="block text-sm font-bold text-gray-700">능력치 세팅 (최대 5개)</label>
+                    <button onclick="addStat()" class="text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold py-1 px-3 rounded-lg transition-colors">+ 추가</button>
+                </div>
+                
+                <div id="controls-container" class="space-y-4 mb-8">
+                    <!-- 컨트롤러 동적 생성 -->
+                </div>
+                
+                <div class="pt-6 border-t border-gray-100">
+                    <button onclick="location.reload()" class="text-gray-400 hover:text-gray-700 text-sm font-medium transition-colors flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        테스트 다시하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 감정 환풍구 모달 -->
+    <div id="vent-modal" class="fixed inset-0 bg-slate-900 bg-opacity-90 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-lg bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <!-- 닫기 버튼 -->
+            <button onclick="closeVentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <div class="text-center mb-6">
+                <span class="text-4xl mb-2 block">🗑️</span>
+                <h2 class="text-2xl font-bold text-white mb-2">비밀 감정 환풍구</h2>
+                <p class="text-slate-400 text-sm">오늘 하루 짜증났던 일, 스트레스, 우울한 감정을 모두 적고 시원하게 날려버리세요. (어디에도 저장되지 않습니다)</p>
+            </div>
+
+            <!-- 입력 및 애니메이션 영역 -->
+            <div id="vent-input-area" class="mb-6 relative">
+                <textarea id="vent-text" rows="5" class="w-full bg-slate-900 border border-slate-600 rounded-2xl p-4 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none transition-all duration-300 relative z-10 shadow-inner" placeholder="예: 오늘 시험 망쳤어! 쟤는 왜 나한테만 그래? 진짜 다 짜증나!!"></textarea>
+            </div>
+
+            <div id="vent-action-buttons" class="grid grid-cols-2 gap-3">
+                <button onclick="discardEmotion('tornado')" class="bg-cyan-900 hover:bg-cyan-800 text-cyan-100 font-bold py-3 rounded-xl border border-cyan-700 transition-colors">🌪️ 토네이도</button>
+                <button onclick="discardEmotion('fire')" class="bg-orange-900 hover:bg-orange-800 text-orange-100 font-bold py-3 rounded-xl border border-orange-700 transition-colors">🔥 불태우기</button>
+                <button onclick="discardEmotion('rocket')" class="bg-indigo-900 hover:bg-indigo-800 text-indigo-100 font-bold py-3 rounded-xl border border-indigo-700 transition-colors">🚀 우주 로켓</button>
+                <button onclick="discardEmotion('slash')" class="bg-rose-900 hover:bg-rose-800 text-rose-100 font-bold py-3 rounded-xl border border-rose-700 transition-colors">⚔️ 검기 난도질</button>
+            </div>
+
+            <!-- 결과 메시지 영역 -->
+            <div id="vent-result-area" class="hidden text-center py-8">
+                <div class="text-5xl mb-4">✨</div>
+                <p id="vent-comfort-msg" class="text-lg text-white font-medium leading-relaxed break-keep"></p>
+                <button onclick="resetVentModal()" class="mt-6 text-slate-400 hover:text-white underline text-sm">다시 비우기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 주소 복사 완료 토스트 알림 -->
+    <div id="toast-msg" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-50 transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 text-sm font-medium border border-slate-700">
+        <span id="toast-text">🔗 주소가 클립보드에 복사되었습니다!</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 퀴즈 및 테마 데이터
+        // ==========================================
+        const questions = [
+            { question: "주말에 하루 온전히 자유 시간이 생겼다! 나의 선택은?", answers: [
+                { text: "침대와 물아일체! 넷플릭스 보며 푹 쉰다.", type: "healer" },
+                { text: "평소 해보고 싶었던 새로운 취미에 도전한다.", type: "challenger" },
+                { text: "밀린 방 정리를 하고 다음 주 플래너를 작성한다.", type: "analyst" },
+                { text: "예쁜 카페에 가서 다이어리를 꾸미거나 그림을 그린다.", type: "artist" }
+            ]},
+            { question: "친구가 '나 수학 5등급 맞았어 ㅠㅠ'라고 할 때 나는?", answers: [
+                { text: "'아고 ㅠㅠ 많이 속상했겠다. 맛있는 거 먹자!'", type: "healer" },
+                { text: "'야 괜찮아! 성적이 밥 먹여주냐? 놀러 가자!'", type: "challenger" },
+                { text: "'어느 파트에서 많이 틀렸어? 같이 오답노트 볼래?'", type: "analyst" },
+                { text: "'수학 숫자들이 너무 딱딱하지 ㅠㅠ 넌 다른 걸 잘하잖아!'", type: "artist" }
+            ]},
+            { question: "조별 과제를 할 때 주로 내가 맡는 역할은?", answers: [
+                { text: "의견 충돌 날 때 중간에서 중재하는 평화 유지군", type: "healer" },
+                { text: "일단 지르고 보는 추진력 갑 발표자", type: "challenger" },
+                { text: "자료조사 끝판왕, 완벽한 PPT 제작자", type: "analyst" },
+                { text: "PPT 디자인과 시각 자료를 영혼 갈아 넣는 디자이너", type: "artist" }
+            ]},
+            { question: "야간 자율 학습이 갑자기 취소되었다! 나의 기분과 행동은?", answers: [
+                { text: "(안도) 아싸! 집에 가서 따뜻한 물로 샤워하고 누워야지.", type: "healer" },
+                { text: "(흥분) 당장 친구들 모아서 코인 노래방으로 달려간다.", type: "challenger" },
+                { text: "(계획수정) 스터디 카페로 자리를 옮겨서 계획한 공부를 마저 한다.", type: "analyst" },
+                { text: "(감성충만) 좋아하는 음악 들으며 동네 산책을 한다.", type: "artist" }
+            ]},
+            { question: "시험 전날 밤, 내 머릿속을 채우는 생각은?", answers: [
+                { text: "'빨리 끝났으면 좋겠다... 끝나고 뭐 먹지?'", type: "healer" },
+                { text: "'이번엔 진짜 찢어버린다! 가보자고!'", type: "challenger" },
+                { text: "'한국사 3단원 복습 한 번 더 하고 자야겠다.'", type: "analyst" },
+                { text: "'시험 끝난 후의 해방감을 상상하며 버틴다.'", type: "artist" }
+            ]},
+            { question: "내가 생각하는 나의 남다른 강점(재능)은?", answers: [
+                { text: "어색한 분위기도 편안하게 만드는 마법 같은 공감 능력", type: "healer" },
+                { text: "꽂힌 일에는 밤을 새워서라도 끝장을 보고 마는 똘기", type: "challenger" },
+                { text: "남들이 놓치는 사소한 디테일도 매의 눈으로 찾아내는 관찰력", type: "analyst" },
+                { text: "나만의 독특한 시선으로 세상을 바라보는 풍부한 감수성", type: "artist" }
+            ]}
+        ];
+
+        const themes = {
+            healer: { class: 'theme-healer', label: '마음 평화 힐러', emoji: '🌿', stats: [
+                { id: 1, name: '멘탈 회복력', value: 90 }, { id: 2, name: '소확행 발견력', value: 95 }, { id: 3, name: '친구이야기 경청', value: 85 }
+            ]},
+            challenger: { class: 'theme-challenger', label: '마이웨이 도전자', emoji: '🔥', stats: [
+                { id: 1, name: '마이웨이 뚝심', value: 99 }, { id: 2, name: '새로운 도전욕구', value: 88 }, { id: 3, name: '흥미분야 몰입도', value: 92 }
+            ]},
+            analyst: { class: 'theme-analyst', label: '디테일 분석가', emoji: '🧐', stats: [
+                { id: 1, name: '자기 객관화', value: 91 }, { id: 2, name: '나만의 루틴유지', value: 87 }, { id: 3, name: '냉철한 상황판단', value: 94 }
+            ]},
+            artist: { class: 'theme-artist', label: '낭만 아티스트', emoji: '🎨', stats: [
+                { id: 1, name: '풍부한 감수성', value: 95 }, { id: 2, name: '미적 감각', value: 90 }, { id: 3, name: '공상과학 상상력', value: 88 }
+            ]}
+        };
+
+        let currentQuestionIndex = 0;
+        let scores = { healer: 0, challenger: 0, analyst: 0, artist: 0 };
+        let currentThemeData = null;
+        let currentStats = [];
+        let statIdCounter = 4;
+
+        function showScreen(screenId) {
+            document.getElementById('screen-intro').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            const targetScreen = document.getElementById(screenId);
+            targetScreen.classList.remove('hidden');
+            targetScreen.classList.add('fade-in');
+        }
+
+        function startQuiz() {
+            scores = { healer: 0, challenger: 0, analyst: 0, artist: 0 };
+            currentQuestionIndex = 0;
+            showScreen('screen-quiz');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = questions[currentQuestionIndex];
+            const progressRatio = ((currentQuestionIndex) / questions.length) * 100;
+            
+            document.getElementById('quiz-progress-text').innerText = `${currentQuestionIndex + 1} / ${questions.length}`;
+            document.getElementById('quiz-progress-bar').style.width = `${progressRatio}%`;
+            document.getElementById('question-text').innerText = q.question;
+            
+            const buttonsContainer = document.getElementById('answer-buttons');
+            buttonsContainer.innerHTML = '';
+            
+            q.answers.forEach((answer, index) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 rounded-2xl border-2 border-indigo-100 bg-white hover:border-indigo-500 hover:bg-indigo-50 hover:shadow-md transition-all font-medium text-gray-700 text-lg transform hover:-translate-y-1";
+                btn.innerText = answer.text;
+                // 약간의 시간차 등장 애니메이션
+                btn.style.animation = `fadeIn 0.3s ease-out ${index * 0.1}s forwards`;
+                btn.style.opacity = '0';
+                btn.onclick = () => handleAnswer(answer.type);
+                buttonsContainer.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(type) {
+            scores[type]++;
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                renderQuestion();
+            } else {
+                document.getElementById('quiz-progress-bar').style.width = `100%`;
+                setTimeout(calculateResult, 300);
+            }
+        }
+
+        function calculateResult() {
+            let highestType = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+            currentThemeData = themes[highestType];
+            currentStats = JSON.parse(JSON.stringify(currentThemeData.stats)); 
+            showScreen('screen-result');
+            initResultScreen();
+        }
+
+        function initResultScreen() {
+            const cardElement = document.getElementById('capture-area');
+            cardElement.className = `w-full max-w-[360px] aspect-[3/4.2] card-container ${currentThemeData.class} rounded-[2rem] p-8 flex flex-col justify-between`;
+            
+            document.getElementById('card-type-label').innerText = currentThemeData.label;
+            
+            const emojiSelect = document.getElementById('input-emoji');
+            // 옵션에 없으면 추가
+            if(![...emojiSelect.options].some(opt => opt.value === currentThemeData.emoji)) {
+                emojiSelect.innerHTML += `<option value="${currentThemeData.emoji}">${currentThemeData.emoji}</option>`;
+            }
+            emojiSelect.value = currentThemeData.emoji;
+            updateEmoji(currentThemeData.emoji);
+            
+            document.getElementById('input-name').value = "MY STATS";
+            updateName("MY STATS");
+
+            renderCardStats();
+            renderControls();
+        }
+
+        function updateName(val) { document.getElementById('card-name').innerText = val || "이름 없음"; }
+        function updateEmoji(val) { document.getElementById('card-emoji').innerText = val; }
+
+        function renderCardStats() {
+            const container = document.getElementById('card-stats-container');
+            container.innerHTML = '';
+            currentStats.forEach(stat => {
+                const html = `
+                    <div class="w-full">
+                        <div class="flex justify-between text-sm font-bold mb-1.5 px-1 drop-shadow-sm">
+                            <span>${stat.name}</span><span>Lv.${stat.value}</span>
+                        </div>
+                        <div class="w-full h-3.5 stat-bg rounded-full overflow-hidden shadow-inner">
+                            <div class="h-full stat-bar-fill rounded-full" style="width: ${stat.value}%"></div>
+                        </div>
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function renderControls() {
+            const container = document.getElementById('controls-container');
+            container.innerHTML = '';
+            currentStats.forEach((stat, index) => {
+                const html = `
+                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200 relative group transition-colors hover:border-indigo-300">
+                        ${currentStats.length > 1 ? `<button onclick="removeStat(${stat.id})" class="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white shadow-sm">X</button>` : ''}
+                        <div class="flex justify-between items-center mb-3">
+                            <input type="text" value="${stat.name}" oninput="updateStatName(${stat.id}, this.value)" class="font-bold text-gray-800 bg-transparent border-b-2 border-transparent focus:border-indigo-500 focus:outline-none w-2/3 transition-colors px-1 py-0.5" placeholder="능력치 이름">
+                            <span class="font-extrabold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md text-sm">Lv.<span id="val-display-${stat.id}">${stat.value}</span></span>
+                        </div>
+                        <input type="range" min="1" max="100" value="${stat.value}" oninput="updateStatValue(${stat.id}, this.value)" class="w-full accent-indigo-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function updateStatName(id, newName) {
+            const stat = currentStats.find(s => s.id === id);
+            if(stat) { stat.name = newName || "무명"; renderCardStats(); }
+        }
+        function updateStatValue(id, newValue) {
+            const stat = currentStats.find(s => s.id === id);
+            if(stat) { stat.value = newValue; document.getElementById(`val-display-${id}`).innerText = newValue; renderCardStats(); }
+        }
+        function addStat() {
+            if (currentStats.length >= 5) return alert('스탯은 최대 5개까지만 추가할 수 있어요!');
+            currentStats.push({ id: statIdCounter++, name: '새로운 능력', value: 50 });
+            renderCardStats(); renderControls();
+        }
+        function removeStat(id) {
+            currentStats = currentStats.filter(s => s.id !== id);
+            renderCardStats(); renderControls();
+        }
+
+        function downloadCard() {
+            const captureDiv = document.getElementById('capture-wrapper');
+            // 다운로드 시 둥근 모서리가 잘리는 것을 방지하기 위해 스케일업 및 옵션 설정
+            html2canvas(captureDiv, { scale: 3, backgroundColor: null, useCORS: true }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = '나만의_능력치_카드.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // ==========================================
+        // 웹사이트 주소 복사 기능
+        // ==========================================
+        function copySiteUrl() {
+            const currentUrl = window.location.href;
+            const tempInput = document.createElement('input');
+            tempInput.value = currentUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('🔗 사이트 주소가 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showToast('❌ 주소 복사에 실패했습니다.');
+            } finally {
+                document.body.removeChild(tempInput);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            const toastText = document.getElementById('toast-text');
+            toastText.innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+
+        // ==========================================
+        // 환풍구 모달 및 연출 로직
+        // ==========================================
+        const comfortMessages = [
+            "오늘 당신이 견뎌낸 마음의 무게는 결코 가볍지 않았어요. 정말 고생 많았어요! 🌿",
+            "지나간 걱정은 깔끔하게 날아갔어요. 이제 당당하고 빛나는 본래의 멋진 나로 돌아올 시간! ✨",
+            "타인의 기준이나 짧은 말 때문에 상처받지 마세요. 당신은 자체로 소중한 사람입니다. 💖",
+            "답답했던 마음이 시원하게 풀렸길 바랍니다. 편안하고 좋은 하루 보내세요. 🌙",
+            "힘든 감정을 솔직하게 털어낼 줄 아는 당신은 진정한 멘탈 고수입니다! 🏆"
+        ];
+
+        function openVentModal() {
+            document.getElementById('vent-modal').classList.remove('hidden');
+            resetVentModal();
+        }
+        function closeVentModal() { document.getElementById('vent-modal').classList.add('hidden'); }
+        function resetVentModal() {
+            const ta = document.getElementById('vent-text');
+            ta.value = '';
+            ta.className = "w-full bg-slate-900 border border-slate-600 rounded-2xl p-4 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none transition-all duration-300 relative z-10 shadow-inner";
+            
+            const container = document.getElementById('vent-input-area');
+            container.classList.remove('anim-shake');
+            document.getElementById('vent-action-buttons').style.display = 'grid';
+            document.getElementById('vent-input-area').classList.remove('hidden');
+            document.getElementById('vent-result-area').classList.add('hidden');
+            
+            // 기존 생성된 이펙트 찌꺼기 제거
+            container.querySelectorAll('.effect-layer').forEach(el => el.remove());
+        }
+
+        function discardEmotion(mode) {
+            const ta = document.getElementById('vent-text');
+            const container = document.getElementById('vent-input-area');
+            if (!ta.value.trim()) {
+                ta.placeholder = "내용을 입력해야 소멸시킬 수 있어요! 소소한 짜증이라도 적어보세요.";
+                ta.focus(); return;
+            }
+
+            // 버튼 숨기기 및 흔들림 시작
+            document.getElementById('vent-action-buttons').style.display = 'none';
+            container.classList.add('anim-shake');
+
+            if (mode === 'tornado') triggerTornado(container, ta);
+            else if (mode === 'fire') triggerFire(container, ta);
+            else if (mode === 'rocket') triggerRocket(container, ta);
+            else if (mode === 'slash') triggerSwordSlashFX(container, ta);
+
+            // 공통 완료 처리
+            setTimeout(() => {
+                ta.value = '';
+                container.classList.remove('anim-shake');
+                container.classList.add('hidden');
+                document.getElementById('vent-comfort-msg').innerText = comfortMessages[Math.floor(Math.random() * comfortMessages.length)];
+                document.getElementById('vent-result-area').classList.remove('hidden');
+            }, 1800);
+        }
+
+        function triggerTornado(container, ta) {
+            const tornado = document.createElement('div');
+            tornado.className = 'tornado-vortex effect-layer';
+            container.appendChild(tornado);
+            setTimeout(() => ta.classList.add('anim-suck-tornado'), 200);
+        }
+
+        function triggerFire(container, ta) {
+            const fire = document.createElement('div');
+            fire.className = 'fire-flame effect-layer';
+            container.appendChild(fire);
+            
+            for(let i=0; i<30; i++) {
+                const ash = document.createElement('div');
+                ash.className = 'ash-particle effect-layer';
+                ash.style.width = Math.random() * 6 + 2 + 'px';
+                ash.style.height = ash.style.width;
+                ash.style.left = Math.random() * 100 + '%';
+                ash.style.bottom = '0px';
+                ash.style.setProperty('--dx', (Math.random() - 0.5) * 100 + 'px');
+                ash.style.setProperty('--dy', -(Math.random() * 200 + 100) + 'px');
+                ash.style.animationDuration = Math.random() * 1 + 0.5 + 's';
+                container.appendChild(ash);
+            }
+            setTimeout(() => ta.classList.add('anim-burn-ash'), 300);
+        }
+
+        function triggerRocket(container, ta) {
+            const r1 = document.createElement('div'); r1.className = 'rocket-engine rocket-left effect-layer';
+            const r2 = document.createElement('div'); r2.className = 'rocket-engine rocket-right effect-layer';
+            container.appendChild(r1); container.appendChild(r2);
+            setTimeout(() => ta.classList.add('anim-space-launch'), 800);
+        }
+
+        // ⚔️ 실제 날아오는 검기 로직
+        function triggerSwordSlashFX(container, ta) {
+            const rect = container.getBoundingClientRect();
+            // 각도, 지연시간, 크기 셋팅 (마지막 2개는 거대한 X자 참격)
+            const slashConfigs = [
+                { angle: 30, top: 20, delay: 0 },
+                { angle: -20, top: 60, delay: 100 },
+                { angle: 70, top: 40, delay: 200 },
+                { angle: -60, top: 30, delay: 300 },
+                { angle: 10, top: 80, delay: 400 },
+                { angle: -45, top: 50, delay: 600, big: true },
+                { angle: 45, top: 50, delay: 700, big: true }
+            ];
+
+            slashConfigs.forEach((cfg) => {
+                setTimeout(() => {
+                    // 1. 발사체 (검기)
+                    const slash = document.createElement('div');
+                    slash.className = 'sword-slash-line effect-layer';
+                    slash.style.top = `${cfg.top}%`;
+                    slash.style.left = `-50%`; // 중심을 박스 바깥 왼쪽으로
+                    slash.style.width = `200%`; // 길게
+                    if (cfg.big) { slash.style.height = '32px'; slash.style.boxShadow = '0 0 40px #fff, 0 0 80px #f59e0b'; }
+
+                    // 날아오는 궤적 계산 (수직/직교 방향에서 덮쳐옴)
+                    const rad = (cfg.angle + 90) * Math.PI / 180;
+                    const distance = 800; // 엄청 먼 곳에서 시작
+                    const startX = -Math.cos(rad) * distance;
+                    const startY = -Math.sin(rad) * distance;
+                    const endX = Math.cos(rad) * (distance * 0.5); // 관통 후 반대편으로
+                    const endY = Math.sin(rad) * (distance * 0.5);
+
+                    slash.style.setProperty('--slash-start', `translate(${startX}px, ${startY}px) rotate(${cfg.angle}deg) scale(0.6, 0.2)`);
+                    slash.style.setProperty('--slash-mid', `translate(0px, 0px) rotate(${cfg.angle}deg) scale(1, 1)`);
+                    slash.style.setProperty('--slash-end', `translate(${endX}px, ${endY}px) rotate(${cfg.angle}deg) scale(1.2, 0.1)`);
+                    container.appendChild(slash);
+
+                    // 2. 잘린 흉터 마크
+                    const cutMark = document.createElement('div');
+                    cutMark.className = 'slash-cut-mark effect-layer';
+                    cutMark.style.top = `${cfg.top}%`;
+                    cutMark.style.left = `0`;
+                    cutMark.style.width = `100%`;
+                    cutMark.style.transform = `rotate(${cfg.angle}deg)`;
+                    container.appendChild(cutMark);
+
+                    // 3. 화면 섬광 (빅 참격일때만)
+                    if(cfg.big) {
+                        const flash = document.createElement('div');
+                        flash.className = 'slash-impact-flash effect-layer';
+                        container.appendChild(flash);
+                    }
+
+                    // 4. 불꽃 스파크 튀기기
+                    const sparkCount = cfg.big ? 30 : 10;
+                    for(let i=0; i<sparkCount; i++) {
+                        const spark = document.createElement('div');
+                        spark.className = 'slash-spark effect-layer';
+                        spark.style.width = (Math.random() * 10 + 2) + 'px';
+                        spark.style.height = '2px';
+                        spark.style.left = (Math.random() * 100) + '%';
+                        spark.style.top = `${cfg.top}%`;
+                        
+                        const pRad = (cfg.angle * Math.PI) / 180 + (Math.PI / 2) * (Math.random() > 0.5 ? 1 : -1);
+                        const speed = Math.random() * 150 + 50;
+                        spark.style.setProperty('--dx', Math.cos(pRad) * speed + 'px');
+                        spark.style.setProperty('--dy', Math.sin(pRad) * speed + 'px');
+                        spark.style.transform = `rotate(${cfg.angle}deg)`;
+                        container.appendChild(spark);
+                    }
+
+                }, cfg.delay);
+            });
+
+            // 텍스트 상자 자체의 파괴 애니메이션 실행 (빅 참격 타이밍에 맞춰)
+            setTimeout(() => ta.classList.add('anim-shred-ribbons'), 750);
+        }
+
+    </script>
+</body>
+</html>
